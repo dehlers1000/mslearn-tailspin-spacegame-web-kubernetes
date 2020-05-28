@@ -3,8 +3,10 @@ trigger:
 
 variables:
   buildConfiguration: 'Release'
+  leaderboardRepository: 'leaderboard'
   webRepository: 'web'
   tag: '$(Build.BuildId)'
+  imagePullSecret: 'secret'
 
 stages:
 - stage: 'Build'
@@ -36,25 +38,24 @@ stages:
         containerRegistry: 'Container Registry Connection'
         tags: |
           $(tag)
+    - publish: '$(Build.SourcesDirectory)/manifests'
+      artifact: manifests
 
 - stage: 'Deploy'
-  displayName: 'Deploy the container'
+  displayName: 'Deploy the containers'
   dependsOn: Build
   jobs:
-  - job: 'Deploy'
-    displayName: 'Deploy job'
+  - deployment: Deploy
+    displayName: Deploy
     pool:
       vmImage: 'ubuntu-16.04'
+    environment: 'spike.default'
     variables:
     - group: Release
-    - buildConfiguration: 'Release'
-    - leaderboardRepository: 'leaderboard'
-    - webRepository: 'web'
-    - tag: '$(Build.BuildId)'
-    - imagePullSecret: 'secret'
-    steps:
-    - task: AzureWebAppContainer@1
-      inputs:
-       appName: $(WebAppName)
-       azureSubscription: 'Resource Manager - Tailspin - Space Game'
-       imageName: $(RegistryName)/$(webRepository):$(build.buildId)
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: manifests
+            
